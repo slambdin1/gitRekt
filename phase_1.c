@@ -2,7 +2,7 @@
 #include <stdio.h> 
 #include <string.h>    
 
-#ifndef	DEFS_H
+#ifndef DEFS_H
 #define DEFS_H
 
 
@@ -81,6 +81,8 @@ typedef struct CommandX{
 int findType(int state, char token[]);
 int findParseState(int previous, int previousType, char token[]);
 int isToken(char token[]);
+struct CommandX* push(struct CommandX * head, char cmd[]);
+void printCommandX(struct CommandX* command);
 
 int verbose;
 
@@ -93,6 +95,8 @@ int main(int argc, char *argv[])
         char originalCommand[100], *line, *tempToke;
         printf("osh>");
 
+        
+
         while(fgets (originalCommand, 100, stdin) != NULL){
 
                 int previousParseState = -1;
@@ -101,6 +105,13 @@ int main(int argc, char *argv[])
                 line = originalCommand;
                 line = strsep (&line, "\n");
 
+                struct CommandX *root;
+                root = malloc(sizeof(struct CommandX));
+
+                struct CommandX *current;
+                current = malloc(sizeof(struct CommandX));
+                current = root;
+
                 //Parse into tokens
                 while ((tempToke = strsep(&line, " ")) != NULL ){
                         if(tempToke && tempToke[0] != '\0'){
@@ -108,17 +119,44 @@ int main(int argc, char *argv[])
                                 int type = findType(parseState, tempToke);
                                 previousParseState = parseState;
                                 previousType = type;
+
+                                //update the linked list
+                                if(previousParseState == NEED_NEW_COMMAND){
+                                        printf("IT IS A NEW COMMAND \n");
+                                        if(root == NULL){
+                                                root = current;
+                                        }
+                                        current = push(root, tempToke);
+
+                                        printf("END OF \n");
+                                }
+                                else{
+                                        if(type == OUT_REDIRECT){
+                                                current->output_mode = OUT_REDIRECT;
+                                                current->output_file = tempToke;
+                                        }
+                                }
                         }                       
                 };
 
                 printf("------------------------- \n");
 
-                //TODO: Print list of commands
+                //Print list of Commands
+                current = root;
+                if (current) { /* Makes sure there is a place to start */
+                    while ( current->next != 0 ) {
+                        
+                        printCommandX(current);
+                        current = current->next;
+                    }
+                    printf("------------------------- \n");
+                    printCommandX(current);
+                }
 
+                printf("------------------------- \n");
                 printf("osh>");
         };
 
-   
         return 0;
 }
 
@@ -229,4 +267,29 @@ int isToken(char token[]){
                 }
         }
         return 0;
+}
+
+struct CommandX* push(struct CommandX * head, char cmd[]) {
+    struct CommandX * current = head;
+    while (current->next != NULL) {
+        current = current->next;
+    }
+
+    /* now we can add a new variable */
+    current->next = malloc(sizeof(struct CommandX));
+    current->next->cmd = cmd;
+    current->next->next = NULL;
+
+    return current->next;
+}
+
+void printCommandX(struct CommandX* command){
+        printf("Cmd: %s \n", command->cmd);
+        // if(command->arg != NULL){
+        // }
+        printf("input file: %s \n", command->input_file);
+        printf("Input mode: %s \n", command->input_mode);
+        printf("output_file: %s \n", command->output_file);
+        printf("Output mode: %s \n", command->output_mode);
+        printf("Command combine mode: %s \n", command->next_command_exec_on);
 }
