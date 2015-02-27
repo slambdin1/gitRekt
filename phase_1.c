@@ -12,12 +12,6 @@
 #define OTHER_TOKEN     1
 
 /*
- * Redirect Modes
- */
-#define IN_REDIRECT     1 // >
-#define OUT_REDIRECT    2 // <
-
-/*
  * Input Modes
  */
 #define I_FILE  1
@@ -27,16 +21,21 @@
  * Output Modes
  */
 #define O_WRITE        1 // 
-#define O_APPND        2 // >>
-#define O_PIPE         3 // |
 
 /*
  * Run Next Command Modes
  */
-#define NEXT_ON_ANY        1 // ;
-#define NEXT_ON_SUCCESS    2 // &&
-#define NEXT_ON_FAIL       3 // ||
+#define JOIN_ANY        1 // ;
+#define JOIN_SUCCESS    2 // &&
+#define JOIN_FAIL       3 // ||
+#define PIPE            4 // |
+#define OUT_APPND         5 // >>
 
+/*
+ * Redirect Modes
+ */
+#define IN_REDIRECT     6 // >
+#define OUT_REDIRECT    7 // <
 
 /*
  * Parse State 
@@ -79,8 +78,8 @@ typedef struct CommandX{
 
 #endif
 
-int findType(int state);
-int findParseState(int current, int previous, char token[]);
+int findType(int state, char token[]);
+int findParseState(int previous, int previousType, char token[]);
 int isToken(char token[]);
 
 int verbose;
@@ -96,67 +95,25 @@ int main(int argc, char *argv[])
 
         while(fgets (originalCommand, 100, stdin) != NULL){
 
-                struct CommandX *firstCommand;
-                
                 int previousParseState = -1;
+                int previousType = -1;
 
                 line = originalCommand;
                 line = strsep (&line, "\n");
 
                 //Parse into tokens
-                int i = 0;
-                struct CommandX *previousCommand;
-                struct CommandX *currentCommand = firstCommand;
-
-                while ((tempToke = strsep(&line, " ")) != NULL){
-                        
-                        int parseState = findParseState(i, previousParseState, tempToke);
-                        int type = findType(parseState);
-
-                        if(parseState == NEED_NEW_COMMAND){
-
-                                if(previousCommand->cmd == NULL){
-                                        firstCommand = currentCommand;
-                                        previousCommand = currentCommand;
-                                }
-                                else{
-                                        previousCommand->next = currentCommand;
-                                }
-                        }
-                        else if(parseState == NEED_ANY_TOKEN){
-
-                                struct ArgX newArg;
-                                newArg.arg = tempToke;
-
-                                if(currentCommand->arg_list->arg == NULL){
-                                        currentCommand->arg_list = &newArg;
-                                }
-                                else{
-                                        currentCommand->arg_list->next = &newArg;
-                                }
-                              
-                                currentCommand->last_arg = &newArg;
-                        }
-                        else if(parseState == NEED_IN_PATH){
-
-                        }
-                        else if(parseState == NEED_OUT_PATH){
-
-                        }
-
-                        currentCommand->parse_state = parseState;
-                        currentCommand->cmd = tempToke;
-
-                        printf("Parse state = %d \n", parseState);
-                        printf("Token:->%s <-Type:%d \n", tempToke, type);
-
-                        previousParseState = parseState;
-                        i++;
+                while ((tempToke = strsep(&line, " ")) != NULL ){
+                        if(tempToke && tempToke[0] != '\0'){
+                                int parseState = findParseState(previousParseState, previousType, tempToke);
+                                int type = findType(parseState, tempToke);
+                                previousParseState = parseState;
+                                previousType = type;
+                        }                       
                 };
 
-                printf("-------------------------");
+                printf("------------------------- \n");
 
-                //Print list of commands
+                //TODO: Print list of commands
 
                 printf("osh>");
         };
@@ -165,40 +122,101 @@ int main(int argc, char *argv[])
         return 0;
 }
 
-int findType(int state){
-        if(state == NEED_NEW_COMMAND){
-                return OTHER_TOKEN;
+int findType(int state, char token[]){
+        char stateString[20];
+
+        int type = OTHER_TOKEN;
+        strcpy(stateString, "OTHER_TOKEN");
+
+        if(state == NEED_ANY_TOKEN){
+
+                if(strcmp(token, "&&") == 0){
+                        printf("join success \n");
+                        type = JOIN_SUCCESS;
+                        strcpy(stateString, "JOIN_SUCCESS");
+                }
+                else if(strcmp(token, ";") == 0){
+                        type = JOIN_ANY;
+                        strcpy(stateString, "JOIN_ANY");
+                }
+                else if(strcmp(token, "||") == 0){
+                        type = JOIN_FAIL;
+                        strcpy(stateString, "JOIN_FAIL");
+                }
+                else if(strcmp(token, "<") == 0){
+                        type = IN_REDIRECT;
+                        strcpy(stateString, "IN_REDIRECT");
+                }
+                else if(strcmp(token, ">") == 0){
+                        type = OUT_REDIRECT;
+                        strcpy(stateString, "OUT_REDIRECT");
+                }
+                else if(strcmp(token, ">>") == 0){
+                        type = OUT_APPND;
+                        strcpy(stateString, "OUT_APPND");
+                }
+                else if(strcmp(token, "|") == 0){
+                        type = PIPE;
+                        strcpy(stateString, "PIPE");
+                }
         }
-        return 0;
+
+        printf("Token:->%s<-Type:%s \n", token, stateString);
+        return type;
 }
 
-int findParseState(int current, int previous, char token[]){
+int findParseState(int previous, int previousType, char token[]){
+
+        int parseState;
+        char printString[20];
+
         if(previous == -1){
-                return NEED_NEW_COMMAND;
+                parseState =  NEED_NEW_COMMAND;
+                strcpy(printString,"NEED_NEW_COMMAND");
         }
         else if(previous == NEED_NEW_COMMAND){
-                return NEED_ANY_TOKEN;   
+                parseState =  NEED_ANY_TOKEN;   
+                strcpy(printString,"NEED_ANY_TOKEN");
         }
         else if(previous == NEED_OUT_PATH || previous == NEED_IN_PATH){
                 if(isToken(token)){
-                        return NEED_ANY_TOKEN;
+                        parseState =  NEED_ANY_TOKEN;
+                        strcpy(printString, "NEED_ANY_TOKEN");
                 }
                 else{
-                        return NEED_NEW_COMMAND;
+                        parseState =  NEED_NEW_COMMAND;
+                        strcpy(printString,"NEED_NEW_COMMAND");
                 }   
         }
         else if(previous == NEED_ANY_TOKEN){
-                if(strcmp(token, "<") ==0 || strcmp(token, "<<")==0){
-                        return NEED_IN_PATH;
+                if(strcmp(token, ">") == 0 || 
+                        strcmp(token, ">>")==0 || 
+                        previousType == OUT_REDIRECT || 
+                        previousType == OUT_APPND){
+
+                        parseState =  NEED_OUT_PATH;
+                        strcpy(printString,"NEED_OUT_PATH");
                 }
-                else if(strcmp(token, ">") == 0 || strcmp(token, ">>")){
-                        return NEED_OUT_PATH;
+                else if(previousType == OTHER_TOKEN){
+                        parseState = NEED_ANY_TOKEN;
+                        strcpy(printString, "NEED_ANY_TOKEN");
+                }
+                else if(previousType == JOIN_SUCCESS){
+                        parseState = NEED_NEW_COMMAND;
+                        strcpy(printString, "NEED_NEW_COMMAND");
+                }
+                else if(previousType == IN_REDIRECT){
+                        parseState = NEED_NEW_COMMAND;
+                        strcpy(printString, "NEED_NEW_COMMAND");
                 }
                 else{
-                        return NEED_NEW_COMMAND;
+                        parseState =  NEED_NEW_COMMAND;
+                        strcpy(printString,"NEED_NEW_COMMAND");
                 }
         }
 
+        printf("Parse state = %s \n", printString);
+        return parseState;
 }
 
 int isToken(char token[]){
