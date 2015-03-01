@@ -299,7 +299,8 @@ int findParseState(int previous, int previousType, char token[]){
 int isToken(char token[]){
         char *tokenList[7] = {">","<",">>","|","&&","||",";"};
 
-        for(int i = 0; i<7; i++){
+        int i;
+        for(i = 0; i<7; i++){
                 int ret = strcmp(token, tokenList[i]);
                 if(ret == 0){
                         return 1;
