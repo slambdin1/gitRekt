@@ -1,10 +1,11 @@
+//ls -l -a -r -t -h -s > osh_output_test 
+
 #include <stdlib.h>
 #include <stdio.h> 
 #include <string.h>    
 
 #ifndef DEFS_H
 #define DEFS_H
-
 
 /*
  *
@@ -20,7 +21,10 @@
 /*
  * Output Modes
  */
-#define O_PIPE        1 // 
+#define O_WRITE        1
+#define O_APPND        2
+#define O_PIPE         3 
+#define O_FILE         4
 
 /*
  * Run Next Command Modes
@@ -71,26 +75,33 @@ typedef struct CommandX{
         Arg  *last_arg;
 
         char *input_file;
+        char *input_char;
         int  input_mode;
         int  input_fd;
 
         char *output_file;
+        char *output_char;
         int  output_mode;
         int  output_fd;
 
         int  next_command_exec_on;
+        char *next_command_exec_on_char;
         pid_t pid;
         struct CommandX *next;
 } Command;
 
 #endif
 
+/*Phase 1 Methods*/
 int findType(int state, char token[]);
 int findParseState(int previous, int previousType, char token[]);
 int isToken(char token[]);
 struct CommandX* push(struct CommandX * head, char cmd[]);
 void pushArg(struct ArgX* head, char token[]);
 void printCommandX(struct CommandX* command);
+
+/*Phase 2 Methods*/
+void executeCommand(struct CommandX* command);
 
 int verbose;
 
@@ -102,8 +113,6 @@ int main(int argc, char *argv[])
 
         char originalCommand[100], *line, *tempToke;
         printf("osh>");
-
-        
 
         while(fgets (originalCommand, 100, stdin) != NULL){
 
@@ -137,7 +146,8 @@ int main(int argc, char *argv[])
                                         }
                                         else{
                                             current->input_file = tempToke;
-                                            current->input_mode = IN_REDIRECT;
+                                            current->input_mode = I_FILE;
+                                            current->input_char = "I_FILE";
                                         }   
                                 }
                                 else if(parseState == NEED_OUT_PATH){
@@ -145,20 +155,30 @@ int main(int argc, char *argv[])
                                 }
                                 else if(parseState == NEED_ANY_TOKEN){
                                     if(type == OUT_REDIRECT){
-                                        current->output_mode = OUT_REDIRECT;
+                                        current->output_mode = O_FILE;
+                                        current->output_char = "O_FILE";
                                     }
                                     if(type == OUT_APPND){
-                                        current->output_mode = OUT_APPND;
+                                        current->output_mode = O_APPND;
+                                        current->output_char = "O_APPND";
                                     }
                                     if(type == PIPE){
                                         current->output_mode = O_PIPE;
+                                        current->output_char ="O_PIPE";
                                         current->next_command_exec_on = NEXT_ON_ANY;
+                                        current->next_command_exec_on_char ="NEXT_ON_ANY";
                                     }
                                     if(type == JOIN_SUCCESS){
                                         current->next_command_exec_on = NEXT_ON_SUCCESS;
+                                        current->next_command_exec_on_char ="NEXT_ON_SUCCESS";
                                     }
                                     if(type == JOIN_FAIL){
                                         current->next_command_exec_on = NEXT_ON_FAIL;
+                                        current->next_command_exec_on_char ="NEXT_ON_FAIL";
+                                    }
+                                    if(type == JOIN_ANY){
+                                        current->next_command_exec_on = NEXT_ON_ANY;
+                                        current->next_command_exec_on_char ="NEXT_ON_ANY";
                                     }
                                     if(type==OTHER_TOKEN){
                                         if(current->arg_list == NULL){
@@ -171,6 +191,7 @@ int main(int argc, char *argv[])
 
                                 if(previousType == PIPE){
                                     current->input_mode = I_PIPE;
+                                    current->input_char="I_PIPE";
                                 }
 
                                 previousParseState = parseState;
@@ -192,12 +213,46 @@ int main(int argc, char *argv[])
                     printCommandX(current);
                 }
 
+                //End of phase_1
+
+                //Beginning phase_2
+                executeCommand(current);
+
+                //End of phase_2
+
                 printf("------------------------- \n");
                 printf("osh>");
         };
 
         return 0;
 }
+
+/*Phase 2 Methods*/
+void executeCommand(struct CommandX* command){
+    
+
+    /* Rule 1: Dont forget this should not go inside a while(1) loop anywhere in your program */
+     pid_t cpid = fork();
+     if (cpid < 0 ){    /* Rule 2: Exit if Fork failed */
+        fprintf(stderr, "Fork Failed \n");
+        exit(1);
+     }
+    
+     else if (cpid == 0 ){ //Code executed only by child process
+ 
+         execv();
+         fprintf(stderr, "Exec Failed \n");
+         exit(1);  /*Rule 3: Always exit in child */
+     }
+    
+     else { //Code executed only by parent process
+         int status;  
+         wait(&status);     /* Rule 4: Wait for child unless we need to launch another exec */
+         printf("Child caught bla bla bla\n");
+     }
+
+}
+/*End Phase 2 Methods*/
 
 int findType(int state, char token[]){
         char stateString[20];
@@ -274,13 +329,13 @@ int findParseState(int previous, int previousType, char token[]){
                         parseState =  NEED_OUT_PATH;
                         strcpy(printString,"NEED_OUT_PATH");
                 }
+                else if(previousType == JOIN_SUCCESS || previousType == JOIN_ANY){
+                        parseState = NEED_NEW_COMMAND;
+                        strcpy(printString, "NEED_NEW_COMMAND");
+                }
                 else if(previousType == OTHER_TOKEN){
                         parseState = NEED_ANY_TOKEN;
                         strcpy(printString, "NEED_ANY_TOKEN");
-                }
-                else if(previousType == JOIN_SUCCESS){
-                        parseState = NEED_NEW_COMMAND;
-                        strcpy(printString, "NEED_NEW_COMMAND");
                 }
                 else if(previousType == IN_REDIRECT){
                         parseState = NEED_NEW_COMMAND;
@@ -358,8 +413,29 @@ void printCommandX(struct CommandX* command){
         }
 
         printf("input file: %s \n", command->input_file);
-        printf("Input mode: %d \n", command->input_mode);
+
+        if(command->input_char){
+            printf("Input mode: %s \n", command->input_char);
+        }
+        else{
+            printf("Input mode: - \n");
+        }
+        
         printf("output_file: %s \n", command->output_file);
-        printf("Output mode: %d \n", command->output_mode);
-        printf("Command combine mode: %d \n", command->next_command_exec_on);
+
+        if(command->output_char){
+            printf("Output mode: %s \n", command->output_char);
+        }
+        else{
+            printf("Output mode: - \n");
+        }
+
+        if(command->next_command_exec_on_char){
+            printf("Command combine mode: %s \n", command->next_command_exec_on_char); 
+        }
+        else{
+            printf("Command combine mode: - \n");
+        }
+        
+
 }
