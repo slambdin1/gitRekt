@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <stdio.h> 
 #include <string.h>    
+#include <unistd.h>
 
 #ifndef DEFS_H
 #define DEFS_H
@@ -74,6 +75,8 @@ typedef struct CommandX{
         Arg  *arg_list;
         Arg  *last_arg;
 
+        int num_of_args;
+
         char *input_file;
         char *input_char;
         int  input_mode;
@@ -128,6 +131,8 @@ int main(int argc, char *argv[])
                 struct CommandX *current;
                 current = malloc(sizeof(struct CommandX));
                 current = root;
+
+                current->num_of_args = 0;
 
                 //Parse into tokens
                 while ((tempToke = strsep(&line, " ")) != NULL ){
@@ -186,6 +191,7 @@ int main(int argc, char *argv[])
 
                                         }
                                         pushArg(current->arg_list, tempToke);
+                                        current->num_of_args++;
                                     }
                                 }
 
@@ -233,22 +239,44 @@ void executeCommand(struct CommandX* command){
 
     /* Rule 1: Dont forget this should not go inside a while(1) loop anywhere in your program */
      pid_t cpid = fork();
-     if (cpid < 0 ){    /* Rule 2: Exit if Fork failed */
+     if (cpid < 0 ){ 
         fprintf(stderr, "Fork Failed \n");
         exit(1);
      }
     
      else if (cpid == 0 ){ //Code executed only by child process
- 
-         execv();
-         fprintf(stderr, "Exec Failed \n");
-         exit(1);  /*Rule 3: Always exit in child */
+    
+        char* argArray[command->num_of_args+1];
+
+        struct ArgX *current;
+        current = malloc(sizeof(struct ArgX));
+        current = command->arg_list;
+        
+        //Create an array from from linked list
+        int i = -1;
+        if (current) { /* Makes sure there is a place to start */  
+            i++;
+            while ( current->next != 0 ) {
+                if(current->arg != NULL){
+                    argArray[i] = current->arg;
+                }
+                current = current->next;
+                i++;
+            }
+            argArray[i] = current->arg;
+        }
+
+        argArray[i+1] = NULL;
+
+        execvp("ls", NULL);
+        fprintf(stderr, "Exec Failed \n");
+        exit(1);
      }
     
      else { //Code executed only by parent process
-         int status;  
-         wait(&status);     /* Rule 4: Wait for child unless we need to launch another exec */
-         printf("Child caught bla bla bla\n");
+        int status;  
+        wait(&status); 
+        printf("Child caught bla bla bla\n");
      }
 
 }
