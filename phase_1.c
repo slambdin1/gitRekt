@@ -110,9 +110,10 @@ int verbose;
 
 int main(int argc, char *argv[])
 {
-
         verbose = 0;
-        //TODO: Check if there is a -v or -verbose flat
+        if(argc == 2){
+            verbose = 1;
+        }
 
         char originalCommand[100], *line, *tempToke;
         printf("osh>");
@@ -253,7 +254,8 @@ void executeCommand(struct CommandX* command){
         current = command->arg_list;
         
         //Create an array from from linked list
-        int i = -1;
+        int i = 0;
+        argArray[i] = command->cmd;
         if (current) { /* Makes sure there is a place to start */  
             i++;
             while ( current->next != 0 ) {
@@ -268,7 +270,7 @@ void executeCommand(struct CommandX* command){
 
         argArray[i+1] = NULL;
 
-        execvp("ls", NULL);
+        execvp(command->cmd, argArray);
         fprintf(stderr, "Exec Failed \n");
         exit(1);
      }
@@ -320,8 +322,10 @@ int findType(int state, char token[]){
                         strcpy(stateString, "PIPE");
                 }
         }
-
-        printf("Token:->%s<-Type:%s \n", token, stateString);
+        
+        if(verbose){
+            printf("Token:->%s<-Type:%s \n", token, stateString);
+        }  
         return type;
 }
 
@@ -375,7 +379,10 @@ int findParseState(int previous, int previousType, char token[]){
                 }
         }
 
-        printf("Parse state = %s \n", printString);
+        if(verbose){
+            printf("Parse state = %s \n", printString);
+        }
+        
         return parseState;
 }
 
@@ -464,6 +471,4 @@ void printCommandX(struct CommandX* command){
         else{
             printf("Command combine mode: - \n");
         }
-        
-
 }
