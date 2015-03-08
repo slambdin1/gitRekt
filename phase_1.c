@@ -11,7 +11,7 @@
 /*
  *
  */
-#define OTHER_TOKEN     1
+#define OTHER_TOKEN     8
 
 /*
  * Input Modes
@@ -219,15 +219,22 @@ int main(int argc, char *argv[])
                     printf("------------------------- \n");
                     printCommandX(current);
                 }
+                /*End of Phase 1*/
 
-                //End of phase_1
-
-                //Beginning phase_2
-                executeCommand(current);
-
-                //End of phase_2
-
+                /*Phase 2*/
                 printf("------------------------- \n");
+                current = root;
+                if(current){
+                    while(current->next != 0){
+                        if(current->cmd != NULL){
+                            executeCommand(current);
+                        }
+                        current = current->next;
+                    }
+                }  
+                
+                printf("------------------------- \n");
+
                 printf("osh>");
         };
 
@@ -236,8 +243,6 @@ int main(int argc, char *argv[])
 
 /*Phase 2 Methods*/
 void executeCommand(struct CommandX* command){
-    
-
     /* Rule 1: Dont forget this should not go inside a while(1) loop anywhere in your program */
      pid_t cpid = fork();
      if (cpid < 0 ){ 
@@ -247,6 +252,7 @@ void executeCommand(struct CommandX* command){
     
      else if (cpid == 0 ){ //Code executed only by child process
     
+        printf("Child %d Running: %s \n", cpid, command->cmd);
         char* argArray[command->num_of_args+1];
 
         struct ArgX *current;
@@ -274,11 +280,10 @@ void executeCommand(struct CommandX* command){
         fprintf(stderr, "Exec Failed \n");
         exit(1);
      }
-    
      else { //Code executed only by parent process
         int status;  
         wait(&status); 
-        printf("Child caught bla bla bla\n");
+        printf("Parent picked up child %d, status = %d \n", cpid, status);
      }
 
 }
@@ -293,7 +298,6 @@ int findType(int state, char token[]){
         if(state == NEED_ANY_TOKEN){
 
                 if(strcmp(token, "&&") == 0){
-                        printf("join success \n");
                         type = JOIN_SUCCESS;
                         strcpy(stateString, "JOIN_SUCCESS");
                 }
