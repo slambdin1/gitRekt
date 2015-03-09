@@ -4,6 +4,7 @@
 #include <stdio.h> 
 #include <string.h>    
 #include <unistd.h>
+#include <fcntl.h>
 
 #ifndef DEFS_H
 #define DEFS_H
@@ -22,7 +23,6 @@
 /*
  * Output Modes
  */
-#define O_WRITE        1
 #define O_APPND        2
 #define O_PIPE         3 
 #define O_FILE         4
@@ -34,7 +34,7 @@
 #define JOIN_SUCCESS    2 // &&
 #define JOIN_FAIL       3 // ||
 #define PIPE            4 // |
-#define OUT_APPND         5 // >>
+#define OUT_APPND       5 // >>
 
 /*
  * Redirect Modes
@@ -45,10 +45,10 @@
 /*
  * Parse State 
  */
-#define NEED_ANY_TOKEN 0
-#define NEED_NEW_COMMAND 1
-#define NEED_IN_PATH 2
-#define NEED_OUT_PATH 3
+#define NEED_ANY_TOKEN      0
+#define NEED_NEW_COMMAND    1
+#define NEED_IN_PATH        2
+#define NEED_OUT_PATH       3
 
  /*
   * Command Combine mode
@@ -227,7 +227,7 @@ int main(int argc, char *argv[])
                 // if(current){
                 //     while(current->next != 0){
                 //         if(current->cmd != NULL){
-                //             executeCommand(current);
+                             executeCommand(current);
                 //         }
                 //         current = current->next;
                 //     }
@@ -276,11 +276,42 @@ void executeCommand(struct CommandX* command){
         }
 
         argArray[i+1] = NULL;
+        //End of array creation
+
+        int in;
+        int out;
+
+        if(command->input_mode == I_FILE)
+        {
+            // replace standard input with input file
+            in = open(command->input_file, O_RDONLY);
+            dup2(in, 0);
+        }
+        else if(command->input_mode == I_PIPE)
+        {
+
+        }
+
+        if(command->output_mode == O_FILE)
+        {
+            // replace standard output with output file
+            out = open(command->output_file, O_WRONLY | O_TRUNC | O_CREAT, S_IRUSR | S_IRGRP | S_IWGRP | S_IWUSR);
+            dup2(out, 1);
+        }
+        else if(command->output_mode == O_APPND)
+        {
+
+        }
+        else if(command->output_mode == O_PIPE)
+        {
+
+        }
+        
+        // close unused file descriptors
+        close(in);
+        close(out);
 
         execvp(command->cmd, argArray);
-
-
-
 
         fprintf(stderr, "Exec Failed \n");
         exit(1);
