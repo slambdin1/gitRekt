@@ -222,16 +222,17 @@ int main(int argc, char *argv[])
                 /*End of Phase 1*/
 
                 /*Phase 2*/
-                printf("------------------------- \n");
-                current = root;
-                if(current){
-                    while(current->next != 0){
-                        if(current->cmd != NULL){
-                            executeCommand(current);
-                        }
-                        current = current->next;
-                    }
-                }  
+                // printf("------------------------- \n");
+                // current = root;
+                // if(current){
+                //     while(current->next != 0){
+                //         if(current->cmd != NULL){
+                //             executeCommand(current);
+                //         }
+                //         current = current->next;
+                //     }
+                //     executeCommand(current);
+                // }  
                 
                 printf("------------------------- \n");
 
@@ -277,10 +278,15 @@ void executeCommand(struct CommandX* command){
         argArray[i+1] = NULL;
 
         execvp(command->cmd, argArray);
+
+
+
+
         fprintf(stderr, "Exec Failed \n");
         exit(1);
      }
      else { //Code executed only by parent process
+
         int status;  
         wait(&status); 
         printf("Parent picked up child %d, status = %d \n", cpid, status);
@@ -357,8 +363,8 @@ int findParseState(int previous, int previousType, char token[]){
                 }   
         }
         else if(previous == NEED_ANY_TOKEN){
-                if(strcmp(token, ">") == 0 || 
-                        strcmp(token, ">>")==0 || 
+                if((strcmp(token, ">") == 0 && previousType != OTHER_TOKEN) || 
+                        (strcmp(token, ">>")==0 && previousType != OTHER_TOKEN) || 
                         previousType == OUT_REDIRECT || 
                         previousType == OUT_APPND){
 
