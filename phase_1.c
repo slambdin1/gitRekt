@@ -111,14 +111,16 @@ int verbose;
 int main(int argc, char *argv[])
 {
         verbose = 0;
-        if(argc == 2){
+        if(argc == 2)
+        {
             verbose = 1;
         }
 
         char originalCommand[100], *line, *tempToke;
         printf("osh>");
 
-        while(fgets (originalCommand, 100, stdin) != NULL){
+        while(fgets (originalCommand, 100, stdin) != NULL)
+        {
 
                 int previousParseState = -1;
                 int previousType = -1;
@@ -209,8 +211,10 @@ int main(int argc, char *argv[])
                 //Print list of Commands
                 current = root;
                 if (current) { /* Makes sure there is a place to start */
-                    while ( current->next != 0 ) {
-                        if(current->cmd != NULL){
+                    while ( current->next != 0 ) 
+                    {
+                        if(current->cmd != NULL)
+                        {
                             printf("------------------------- \n");
                             printCommandX(current);
                         }
@@ -221,14 +225,12 @@ int main(int argc, char *argv[])
                 }
                 /*End of Phase 1*/
 
-                /*Phase 2*/
+                /*Phase 2~3*/
                 current = root;
                 executeCommand(current);
-                
                 free(current);
 
                 printf("------------------------- \n");
-
                 printf("osh>");
         };
 
@@ -238,8 +240,6 @@ int main(int argc, char *argv[])
 /*Phase 2 Methods*/
 void executeCommand(struct CommandX* command)
 {
-    printf("executing command");
-    
     //Create an array from from linked list
     char* argArray[command->num_of_args+1];
 
@@ -278,70 +278,84 @@ void executeCommand(struct CommandX* command)
     {
         // replace standard output with output file
         out = open(command->output_file, O_WRONLY | O_TRUNC | O_CREAT, S_IRUSR | S_IRGRP | S_IWGRP | S_IWUSR);
-        dup2(out, 1);
-        close(out);
+        command->output_fd = out;
     }
     else if(command->output_mode == O_APPND)
     {
         out = open(command->output_file, O_WRONLY|O_APPEND);
-        dup2(out, 1);
-        close(out);
+        command->output_fd = out;
     }
     else if(command->output_mode == O_PIPE)
     {
         pipe(pipefd);
-
-        dup2(pipefd[0], 0);
-        close(pipefd[0]);
+        command->output_fd = pipefd[1];
+        command->next->input_fd = pipefd[0];
     }
 
     if(command->input_mode == I_FILE)
     {  
-        if(access(command->input_file, F_OK) != -1) {
+        if(access(command->input_file, F_OK) != -1) 
+        {
             // file exists and replace standard input with input file
             in = open(command->input_file, O_RDONLY);
-            dup2(in, 0);
-            close(in);
-        } else {
+            command->input_fd = in;
+        } else 
+        {
             // ERROR: file does not exist 
             printf("Unable to open input file \n");
             _exit(EXIT_FAILURE);
         }
     }
-    else if(command->input_mode == I_PIPE)
-    {
-        dup2(pipefd[1], 0);
-        close(pipefd[1]);
-    }
 
     pid = fork();
     
-    if (pid < 0 ){ 
+    if (pid < 0 )
+    { 
        fprintf(stderr, "Fork Failed \n");
        exit(1);
     }
-    else if (pid == 0 ){ //Code executed only by child process
-    
+    else if (pid == 0 )
+    { //Code executed only by child process
         printf("Child %d Running: %s \n", pid, command->cmd);
+        
+        if(command->output_mode == O_FILE || command->output_mode == O_APPND)
+        {
+            dup2(command->output_fd, 1);
+            close(command->output_fd);
+        }
+        else if(command->output_mode == O_PIPE)
+        {
+            dup2(pipefd[0], 0);
+            close(pipefd[1]);
+        }
+
+        if(command->input_mode == I_FILE)
+        {
+            dup2(command->input_fd, 0);
+            close(command->input_fd);
+        }
 
         //execute command
         execvp(command->cmd, argArray);
-
         fprintf(stderr, "Exec Failed \n");
         exit(1);
     }
-    else { //Code executed only by parent process
+    else 
+    { //Code executed only by parent process  
+        if(command->output_mode == O_PIPE)
+        {
+            close(pipefd[1]);
+        }
+
         int status;  
         wait(&status); 
         printf("Parent picked up child %d, status = %d \n", pid, status);
     }
 
-    if(command->next){
+    if(command->next)
+    {
        executeCommand(command->next);
     }
-
-    close(pipefd[0]);
-    close(pipefd[1]);
 }
 /*End Phase 2 Methods*/
 
