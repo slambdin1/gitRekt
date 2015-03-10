@@ -1,7 +1,9 @@
-#include <stdio.h> 
-
-
-int main(int argc, char *argv[])
-{
-	printf("hi");
-}
+>
+README.txt
+a.out
+code.c
+makefile
+out
+paul
+phase_1.c
+testshell

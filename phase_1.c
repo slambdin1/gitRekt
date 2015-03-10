@@ -59,19 +59,20 @@
 extern int cerror;
 
 /* A C sytle linked list to parse and build the argv structure */
-typedef struct ArgX{
+typedef struct ArgX
+{
         char *arg;
         struct ArgX *next;
 } Arg;
 
 
 /* A C sytle linked list to parse the input line */
-typedef struct CommandX{
+typedef struct CommandX
+{
         int  parse_state;
         char *cmd;
 
         Arg  *arg_list;
-        Arg  *last_arg;
 
         int num_of_args;
 
@@ -117,123 +118,134 @@ int main(int argc, char *argv[])
         char originalCommand[100], *line, *tempToke;
         printf("osh>");
 
+        struct CommandX *root;
+        struct CommandX *current;
+
         while(fgets (originalCommand, 100, stdin) != NULL)
         {
 
-                int previousParseState = -1;
-                int previousType = -1;
+            int previousParseState = -1;
+            int previousType = -1;
 
-                line = originalCommand;
-                line = strsep (&line, "\n");
+            line = originalCommand;
+            line = strsep (&line, "\n");
 
-                struct CommandX *root;
-                root = malloc(sizeof(struct CommandX));
+           
+            root = malloc(sizeof(struct CommandX));
+            current = malloc(sizeof(struct CommandX));
+            //current = root;
 
-                struct CommandX *current;
-                current = malloc(sizeof(struct CommandX));
-                //current = root;
+            current->num_of_args = 0;
 
-                current->num_of_args = 0;
-
-                //Parse into tokens
-                while ((tempToke = strsep(&line, " ")) != NULL ){
-                        if(tempToke && tempToke[0] != '\0'){
-                                int parseState = findParseState(previousParseState, previousType, tempToke);
-                                int type = findType(parseState, tempToke);
-
-                                //update the linked list
-                                if(parseState == NEED_NEW_COMMAND){
-                                        
-                                        if(previousType != IN_REDIRECT){
-                                            if(root == NULL){
-                                                root = current;
-                                            }
-                                            current = push(root, tempToke);
-                                        }
-                                        else{
-                                            current->input_file = tempToke;
-                                            current->input_mode = I_FILE;
-                                            current->input_char = "I_FILE";
-                                        }   
-                                }
-                                else if(parseState == NEED_OUT_PATH){
-                                    current->output_file = tempToke;
-                                }
-                                else if(parseState == NEED_ANY_TOKEN){
-                                    if(type == OUT_REDIRECT){
-                                        current->output_mode = O_FILE;
-                                        current->output_char = "O_FILE";
-                                    }
-                                    if(type == OUT_APPND){
-                                        current->output_mode = O_APPND;
-                                        current->output_char = "O_APPND";
-                                    }
-                                    if(type == PIPE){
-                                        current->output_mode = O_PIPE;
-                                        current->output_char ="O_PIPE";
-                                        current->next_command_exec_on = NEXT_ON_ANY;
-                                        current->next_command_exec_on_char ="NEXT_ON_ANY";
-                                    }
-                                    if(type == JOIN_SUCCESS){
-                                        current->next_command_exec_on = NEXT_ON_SUCCESS;
-                                        current->next_command_exec_on_char ="NEXT_ON_SUCCESS";
-                                    }
-                                    if(type == JOIN_FAIL){
-                                        current->next_command_exec_on = NEXT_ON_FAIL;
-                                        current->next_command_exec_on_char ="NEXT_ON_FAIL";
-                                    }
-                                    if(type == JOIN_ANY){
-                                        current->next_command_exec_on = NEXT_ON_ANY;
-                                        current->next_command_exec_on_char ="NEXT_ON_ANY";
-                                    }
-                                    if(type==OTHER_TOKEN){
-                                        if(current->arg_list == NULL){
-                                            current->arg_list = malloc(sizeof(struct ArgX));
-                                        }
-                                        pushArg(current->arg_list, tempToke);
-                                        current->num_of_args++;
-                                    }
-                                }
-
-                                if(previousType == PIPE){
-                                    current->input_mode = I_PIPE;
-                                    current->input_char="I_PIPE";
-                                }
-
-                                previousParseState = parseState;
-                                previousType = type;
-                        }                       
-                };
-
-
-                //Print list of Commands
-                current = root;
-                if (current) { /* Makes sure there is a place to start */
-                    while ( current->next != 0 ) 
-                    {
-                        if(current->cmd != NULL)
-                        {
-                            printf("------------------------- \n");
-                            printCommandX(current);
-                        }
-                        current = current->next;
+            //Parse into tokens
+            while ((tempToke = strsep(&line, " ")) != NULL )
+            {
+                if(tempToke && tempToke[0] != '\0')
+                {
+                    if(strcmp(tempToke, "exit") == 0)
+                    {   
+                        printf("Exiting... \n");
+                        exit(1);
                     }
-                    printf("------------------------- \n");
-                    printCommandX(current);
+
+
+                    int parseState = findParseState(previousParseState, previousType, tempToke);
+                    int type = findType(parseState, tempToke);
+
+                    //update the linked list
+                    if(parseState == NEED_NEW_COMMAND){
+                            
+                            if(previousType != IN_REDIRECT){
+                                if(root == NULL){
+                                    root = current;
+                                }
+                                current = push(root, tempToke);
+                            }
+                            else{
+                                current->input_file = tempToke;
+                                current->input_mode = I_FILE;
+                                current->input_char = "I_FILE";
+                            }   
+                    }
+                    else if(parseState == NEED_OUT_PATH){
+                        current->output_file = tempToke;
+                    }
+                    else if(parseState == NEED_ANY_TOKEN){
+                        if(type == OUT_REDIRECT){
+                            current->output_mode = O_FILE;
+                            current->output_char = "O_FILE";
+                        }
+                        if(type == OUT_APPND){
+                            current->output_mode = O_APPND;
+                            current->output_char = "O_APPND";
+                        }
+                        if(type == PIPE){
+
+                            current->output_mode = O_PIPE;
+                            current->output_char ="O_PIPE";
+                            current->next_command_exec_on = NEXT_ON_ANY;
+                            current->next_command_exec_on_char ="NEXT_ON_ANY";
+                        }
+                        if(type == JOIN_SUCCESS){
+                            current->next_command_exec_on = NEXT_ON_SUCCESS;
+                            current->next_command_exec_on_char ="NEXT_ON_SUCCESS";
+                        }
+                        if(type == JOIN_FAIL){
+                            current->next_command_exec_on = NEXT_ON_FAIL;
+                            current->next_command_exec_on_char ="NEXT_ON_FAIL";
+                        }
+                        if(type == JOIN_ANY){
+                            current->next_command_exec_on = NEXT_ON_ANY;
+                            current->next_command_exec_on_char ="NEXT_ON_ANY";
+                        }
+                        if(type==OTHER_TOKEN){
+                            if(current->arg_list == NULL){
+                                current->arg_list = malloc(sizeof(struct ArgX));
+                            }
+                            pushArg(current->arg_list, tempToke);
+                            current->num_of_args++;
+                        }
+                    }
+
+                    if(previousType == PIPE){
+                        current->input_mode = I_PIPE;
+                        current->input_char="I_PIPE";
+                    }
+
+                    previousParseState = parseState;
+                    previousType = type;
+                }                       
+            };
+
+
+            //Print list of Commands
+            current = root;
+            if (current) { /* Makes sure there is a place to start */
+                while ( current->next != 0 ) 
+                {
+                    if(current->cmd != NULL)
+                    {
+                        printf("------------------------- \n");
+                        printCommandX(current);
+                    }
+                    current = current->next;
                 }
-                /*End of Phase 1*/
-
-                /*Phase 2~3*/
-                current = root;
-
-                executeCommand(current);    
-
-                free(current);
-                free(current->next);
-                
                 printf("------------------------- \n");
-                printf("osh>");
+                printCommandX(current);
+            }
+            /*End of Phase 1*/
+
+            /*Phase 2~3*/
+            current = root;
+
+            executeCommand(current);    
+
+            printf("------------------------- \n");
+            printf("osh>");
         };
+
+        free(root);
+        free(current);
 
         return 0;
 }
@@ -245,7 +257,6 @@ void executeCommand(struct CommandX* command)
     char* argArray[command->num_of_args+1];
 
     struct ArgX *current;
-    current = malloc(sizeof(struct ArgX));
     current = command->arg_list;
    
     int i = 0;
@@ -266,7 +277,6 @@ void executeCommand(struct CommandX* command)
     }
 
     argArray[i+1] = NULL;
-    free(current);
     //End of array creation
 
     int in;
@@ -325,6 +335,13 @@ void executeCommand(struct CommandX* command)
             close(command->input_fd);
         }
 
+        if(command->input_mode == I_PIPE)
+        {
+            dup2(command->input_fd, 0);
+            close(command->input_fd);
+            close(pipefd[1]);
+        }
+
         if(command->output_mode == O_FILE || command->output_mode == O_APPND)
         {
             dup2(command->output_fd, 1);
@@ -334,6 +351,7 @@ void executeCommand(struct CommandX* command)
         {
             dup2(pipefd[0], 0);
             close(pipefd[0]);
+            close(pipefd[1]);
         }
 
         //execute command
@@ -477,7 +495,6 @@ int isToken(char token[]){
 
 struct CommandX* push(struct CommandX * head, char cmd[]) {
     struct CommandX * current;
-    current = malloc(sizeof(struct CommandX));
     current = head;
 
     while (current->next != NULL) {
@@ -494,7 +511,6 @@ struct CommandX* push(struct CommandX * head, char cmd[]) {
 
 void pushArg(struct ArgX* head, char token[]) {
     struct ArgX * current;
-    current = malloc(sizeof(struct ArgX));
     current = head;
 
     while (current->next != NULL && current->next->arg != NULL) {
@@ -513,7 +529,6 @@ void printCommandX(struct CommandX* command){
         
         //Print ArgList
         struct ArgX *current;
-        current = malloc(sizeof(struct ArgX));
         current = command->arg_list;
         
         if (current) { /* Makes sure there is a place to start */
