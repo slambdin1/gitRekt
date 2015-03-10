@@ -1,7 +1,9 @@
-#include <stdio.h> 
-
-
-int main(int argc, char *argv[])
-{
-	printf("hi");
-}
+executing commandChild 0 Running: ls 
+a.out
+code.c
+out
+phase_1.c
+testshell
+executing commandParent picked up child 49602, status = 0 
+------------------------- 
+osh>

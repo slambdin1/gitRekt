@@ -189,7 +189,6 @@ int main(int argc, char *argv[])
                                     if(type==OTHER_TOKEN){
                                         if(current->arg_list == NULL){
                                             current->arg_list = malloc(sizeof(struct ArgX));
-
                                         }
                                         pushArg(current->arg_list, tempToke);
                                         current->num_of_args++;
@@ -205,6 +204,7 @@ int main(int argc, char *argv[])
                                 previousType = type;
                         }                       
                 };
+
 
                 //Print list of Commands
                 current = root;
@@ -222,7 +222,10 @@ int main(int argc, char *argv[])
                 /*End of Phase 1*/
 
                 /*Phase 2*/
+                current = root;
                 executeCommand(current);
+                
+                free(current);
 
                 printf("------------------------- \n");
 
@@ -233,12 +236,83 @@ int main(int argc, char *argv[])
 }
 
 /*Phase 2 Methods*/
-void executeCommand(struct CommandX* command){
+void executeCommand(struct CommandX* command)
+{
+    printf("executing command");
     
+    //Create an array from from linked list
+    char* argArray[command->num_of_args+1];
+
+    struct ArgX *current;
+    current = malloc(sizeof(struct ArgX));
+    current = command->arg_list;
+   
+    int i = 0;
+    argArray[i] = command->cmd;
+    if (current) 
+    { /* Makes sure there is a place to start */  
+       i++;
+       while ( current->next != 0 ) 
+       {
+           if(current->arg != NULL)
+           {
+               argArray[i] = current->arg;
+           }
+           current = current->next;
+           i++;
+       }
+       argArray[i] = current->arg;
+    }
+
+    argArray[i+1] = NULL;
+    free(current);
+    //End of array creation
+
+    int in;
+    int out; 
+
     int pipefd[2];
     int pid;
 
-    pipe(pipefd);
+    if(command->output_mode == O_FILE)
+    {
+        // replace standard output with output file
+        out = open(command->output_file, O_WRONLY | O_TRUNC | O_CREAT, S_IRUSR | S_IRGRP | S_IWGRP | S_IWUSR);
+        dup2(out, 1);
+        close(out);
+    }
+    else if(command->output_mode == O_APPND)
+    {
+        out = open(command->output_file, O_WRONLY|O_APPEND);
+        dup2(out, 1);
+        close(out);
+    }
+    else if(command->output_mode == O_PIPE)
+    {
+        pipe(pipefd);
+
+        dup2(pipefd[0], 0);
+        close(pipefd[0]);
+    }
+
+    if(command->input_mode == I_FILE)
+    {  
+        if(access(command->input_file, F_OK) != -1) {
+            // file exists and replace standard input with input file
+            in = open(command->input_file, O_RDONLY);
+            dup2(in, 0);
+            close(in);
+        } else {
+            // ERROR: file does not exist 
+            printf("Unable to open input file \n");
+            _exit(EXIT_FAILURE);
+        }
+    }
+    else if(command->input_mode == I_PIPE)
+    {
+        dup2(pipefd[1], 0);
+        close(pipefd[1]);
+    }
 
     pid = fork();
     
@@ -246,98 +320,31 @@ void executeCommand(struct CommandX* command){
        fprintf(stderr, "Fork Failed \n");
        exit(1);
     }
-    
     else if (pid == 0 ){ //Code executed only by child process
     
         printf("Child %d Running: %s \n", pid, command->cmd);
-       
-        //Create an array from from linked list
-        char* argArray[command->num_of_args+1];
-
-        struct ArgX *current;
-        current = malloc(sizeof(struct ArgX));
-        current = command->arg_list;
-        
-       
-        int i = 0;
-        argArray[i] = command->cmd;
-        if (current) { /* Makes sure there is a place to start */  
-           i++;
-           while ( current->next != 0 ) {
-               if(current->arg != NULL){
-                   argArray[i] = current->arg;
-               }
-               current = current->next;
-               i++;
-           }
-           argArray[i] = current->arg;
-        }
-
-        argArray[i+1] = NULL;
-        //End of array creation
-
-        int in;
-        int out;
-
-        if(command->input_mode == I_FILE)
-        {  
-            if( access(command->input_file, F_OK) != -1 ) {
-                // file exists and replace standard input with input file
-                in = open(command->input_file, O_RDONLY);
-                dup2(in, 0);
-            } else {
-                // ERROR: file does not exist 
-                printf("Unable to open input file \n");
-                _exit(EXIT_FAILURE);
-            }
-        }
-        else if(command->input_mode == I_PIPE)
-        {
-
-        }
-
-        if(command->output_mode == O_FILE)
-        {
-            // replace standard output with output file
-            out = open(command->output_file, O_WRONLY | O_TRUNC | O_CREAT, S_IRUSR | S_IRGRP | S_IWGRP | S_IWUSR);
-            dup2(out, 1);
-        }
-        else if(command->output_mode == O_APPND)
-        {
-            out = open(command->output_file, O_WRONLY|O_APPEND);
-        }
-        else if(command->output_mode == O_PIPE)
-        {
-            dup2(pipefd[0], 0);
-            close(pipefd[1]);
-            execvp(command->cmd, argArray);
-        }
-        
-        // close unused file descriptors
-        close(in);
-        close(out);
 
         //execute command
         execvp(command->cmd, argArray);
 
         fprintf(stderr, "Exec Failed \n");
         exit(1);
-     }
-     else { //Code executed only by parent process
-
-        if(command->output_mode == O_PIPE){
-            dup2(pipefd[1], 1);
-            close(pipefd[0]);
-        }
+    }
+    else { //Code executed only by parent process
         int status;  
         wait(&status); 
         printf("Parent picked up child %d, status = %d \n", pid, status);
-     }
+    }
 
+    if(command->next){
+       executeCommand(command->next);
+    }
+
+    close(pipefd[0]);
+    close(pipefd[1]);
 }
 /*End Phase 2 Methods*/
 
-/*Phase 3 Methods*/
 int findType(int state, char token[]){
         char stateString[20];
 
@@ -381,8 +388,6 @@ int findType(int state, char token[]){
         }  
         return type;
 }
-/*End of Phase 3 Methods*/
-
 
 /*Phase 1 Methods*/
 int findParseState(int previous, int previousType, char token[]){
@@ -456,7 +461,10 @@ int isToken(char token[]){
 }
 
 struct CommandX* push(struct CommandX * head, char cmd[]) {
-    struct CommandX * current = head;
+    struct CommandX * current;
+    current = malloc(sizeof(struct CommandX));
+    current = head;
+
     while (current->next != NULL) {
         current = current->next;
     }
