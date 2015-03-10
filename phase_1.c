@@ -1,10 +1,9 @@
-//ls -l -a -r -t -h -s > osh_output_test 
-
 #include <stdlib.h>
 #include <stdio.h> 
 #include <string.h>    
 #include <unistd.h>
 #include <fcntl.h>
+
 
 #ifndef DEFS_H
 #define DEFS_H
@@ -58,7 +57,6 @@
 #define NEXT_ON_FAIL    3
 
 extern int cerror;
-
 
 /* A C sytle linked list to parse and build the argv structure */
 typedef struct ArgX{
@@ -133,7 +131,7 @@ int main(int argc, char *argv[])
 
                 struct CommandX *current;
                 current = malloc(sizeof(struct CommandX));
-                current = root;
+                //current = root;
 
                 current->num_of_args = 0;
 
@@ -227,9 +225,12 @@ int main(int argc, char *argv[])
 
                 /*Phase 2~3*/
                 current = root;
-                executeCommand(current);
-                free(current);
 
+                executeCommand(current);    
+
+                free(current);
+                free(current->next);
+                
                 printf("------------------------- \n");
                 printf("osh>");
         };
@@ -318,6 +319,12 @@ void executeCommand(struct CommandX* command)
     { //Code executed only by child process
         printf("Child %d Running: %s \n", pid, command->cmd);
         
+        if(command->input_mode == I_FILE)
+        {
+            dup2(command->input_fd, 0);
+            close(command->input_fd);
+        }
+
         if(command->output_mode == O_FILE || command->output_mode == O_APPND)
         {
             dup2(command->output_fd, 1);
@@ -326,17 +333,12 @@ void executeCommand(struct CommandX* command)
         else if(command->output_mode == O_PIPE)
         {
             dup2(pipefd[0], 0);
-            close(pipefd[1]);
-        }
-
-        if(command->input_mode == I_FILE)
-        {
-            dup2(command->input_fd, 0);
-            close(command->input_fd);
+            close(pipefd[0]);
         }
 
         //execute command
         execvp(command->cmd, argArray);
+        
         fprintf(stderr, "Exec Failed \n");
         exit(1);
     }
@@ -346,7 +348,6 @@ void executeCommand(struct CommandX* command)
         {
             close(pipefd[1]);
         }
-
         int status;  
         wait(&status); 
         printf("Parent picked up child %d, status = %d \n", pid, status);
@@ -354,7 +355,7 @@ void executeCommand(struct CommandX* command)
 
     if(command->next)
     {
-       executeCommand(command->next);
+        executeCommand(command->next);
     }
 }
 /*End Phase 2 Methods*/
