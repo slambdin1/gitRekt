@@ -102,7 +102,6 @@ int isToken(char token[]);
 struct CommandX* push(struct CommandX * head, char cmd[]);
 void pushArg(struct ArgX* head, char token[]);
 void printCommandX(struct CommandX* command);
-void pipeProcess(struct CommandX* command);
 
 /*Phase 2 Methods*/
 void executeCommand(struct CommandX* command);
@@ -223,18 +222,8 @@ int main(int argc, char *argv[])
                 /*End of Phase 1*/
 
                 /*Phase 2*/
-                // printf("------------------------- \n");
-                // current = root;
-                // if(current){
-                //     while(current->next != 0){
-                //         if(current->cmd != NULL){
-                             executeCommand(current);
-                //         }
-                //         current = current->next;
-                //     }
-                //     executeCommand(current);
-                // }  
-                
+                executeCommand(current);
+
                 printf("------------------------- \n");
 
                 printf("osh>");
@@ -247,27 +236,32 @@ int main(int argc, char *argv[])
 void executeCommand(struct CommandX* command){
     
     int pipefd[2];
-    char buf;
-    pid_t cpid = fork();
+    int pid;
+
+    pipe(pipefd);
+
+    pid = fork();
     
-    if (cpid < 0 ){ 
+    if (pid < 0 ){ 
        fprintf(stderr, "Fork Failed \n");
        exit(1);
     }
     
-    else if (cpid == 0 ){ //Code executed only by child process
+    else if (pid == 0 ){ //Code executed only by child process
     
-       printf("Child %d Running: %s \n", cpid, command->cmd);
-       char* argArray[command->num_of_args+1];
+        printf("Child %d Running: %s \n", pid, command->cmd);
+       
+        //Create an array from from linked list
+        char* argArray[command->num_of_args+1];
 
-       struct ArgX *current;
-       current = malloc(sizeof(struct ArgX));
-       current = command->arg_list;
+        struct ArgX *current;
+        current = malloc(sizeof(struct ArgX));
+        current = command->arg_list;
         
-       //Create an array from from linked list
-       int i = 0;
-       argArray[i] = command->cmd;
-       if (current) { /* Makes sure there is a place to start */  
+       
+        int i = 0;
+        argArray[i] = command->cmd;
+        if (current) { /* Makes sure there is a place to start */  
            i++;
            while ( current->next != 0 ) {
                if(current->arg != NULL){
@@ -277,7 +271,7 @@ void executeCommand(struct CommandX* command){
                i++;
            }
            argArray[i] = current->arg;
-       }
+        }
 
         argArray[i+1] = NULL;
         //End of array creation
@@ -314,7 +308,9 @@ void executeCommand(struct CommandX* command){
         }
         else if(command->output_mode == O_PIPE)
         {
-            pipeProcess(command);
+            dup2(pipefd[0], 0);
+            close(pipefd[1]);
+            execvp(command->cmd, argArray);
         }
         
         // close unused file descriptors
@@ -329,55 +325,19 @@ void executeCommand(struct CommandX* command){
      }
      else { //Code executed only by parent process
 
+        if(command->output_mode == O_PIPE){
+            dup2(pipefd[1], 1);
+            close(pipefd[0]);
+        }
         int status;  
         wait(&status); 
-        printf("Parent picked up child %d, status = %d \n", cpid, status);
+        printf("Parent picked up child %d, status = %d \n", pid, status);
      }
 
 }
 /*End Phase 2 Methods*/
 
 /*Phase 3 Methods*/
-void pipeProcess(struct CommandX* command){
-
-    int pipefd[2];
-    int pid;
-
-    char *cat_args[] = {"cat", "scores", NULL};
-    char *grep_args[] = {"grep", "Villanova", NULL};
-
-    // make a pipe (fds go in pipefd[0] and pipefd[1])
-    pipe(pipefd);
-
-    pid = fork();
-
-    if (pid == 0)
-    {
-      // child gets here and handles "grep Villanova"
-      // replace standard input with input part of pipe
-      dup2(pipefd[0], 0);
-
-      // close unused hald of pipe
-      close(pipefd[1]);
-
-      // execute grep
-      execvp("grep", grep_args);
-    }
-    else
-    {
-      // parent gets here and handles
-      // replace standard output with output part of pipe
-      dup2(pipefd[1], 1);
-
-      // close unused unput half of pipe
-      close(pipefd[0]);
-
-      // execute cat
-
-      execvp("cat", cat_args);
-    }
-}
-
 int findType(int state, char token[]){
         char stateString[20];
 
