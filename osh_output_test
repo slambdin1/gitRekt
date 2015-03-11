@@ -1,0 +1,15 @@
+total 176
+ 0 drwxr-xr-x   4 shannenbrittanylambdin  staff   136B Feb 27 16:29 ..
+40 -rwxrwxrwx@  1 shannenbrittanylambdin  staff    17K Mar  7 20:36 testshell
+16 -rw-r--r--@  1 shannenbrittanylambdin  staff   6.0K Mar 10 01:06 .DS_Store
+ 8 -rw-r--r--   1 shannenbrittanylambdin  staff   111B Mar 10 01:42 makefile
+ 8 -rw-r--r--   1 shannenbrittanylambdin  staff   137B Mar 10 02:29 paul
+ 8 -rw-r-----   1 shannenbrittanylambdin  staff     7B Mar 10 09:14 >
+ 8 -rw-r--r--   1 shannenbrittanylambdin  staff    64B Mar 10 13:06 code.c
+ 8 -rw-r--r--   1 shannenbrittanylambdin  staff   1.1K Mar 10 14:23 README.txt
+ 8 -rw-r-----   1 shannenbrittanylambdin  staff    64B Mar 10 19:25 out
+ 0 drwxr-xr-x  15 shannenbrittanylambdin  staff   510B Mar 10 19:26 .git
+40 -rw-r--r--   1 shannenbrittanylambdin  staff    16K Mar 10 20:31 phase_1.c
+32 -rwxr-xr-x   1 shannenbrittanylambdin  staff    14K Mar 10 20:31 a.out
+ 0 drwxr-xr-x  14 shannenbrittanylambdin  staff   476B Mar 10 20:31 .
+ 0 -rw-r-----   1 shannenbrittanylambdin  staff     0B Mar 10 20:31 osh_output_test

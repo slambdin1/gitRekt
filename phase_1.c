@@ -49,9 +49,9 @@
 #define NEED_IN_PATH        2
 #define NEED_OUT_PATH       3
 
- /*
-  * Command Combine mode
-  */
+/*
+* Command Combine mode
+*/
 #define NEXT_ON_ANY     1
 #define NEXT_ON_SUCCESS 2
 #define NEXT_ON_FAIL    3
@@ -132,7 +132,6 @@ int main(int argc, char *argv[])
             line = originalCommand;
             line = strsep (&line, "\n");
 
-           
             root = malloc(sizeof(struct CommandX));
             current = malloc(sizeof(struct CommandX));
             //current = root;
@@ -155,19 +154,22 @@ int main(int argc, char *argv[])
                     int type = findType(parseState, tempToke);
 
                     //update the linked list
-                    if(parseState == NEED_NEW_COMMAND){
-                            
-                            if(previousType != IN_REDIRECT){
-                                if(root == NULL){
-                                    root = current;
-                                }
-                                current = push(root, tempToke);
+                    if(parseState == NEED_NEW_COMMAND)
+                    { 
+                        if(previousType != IN_REDIRECT)
+                        {
+                            if(root == NULL)
+                            {
+                                root = current;
                             }
-                            else{
-                                current->input_file = tempToke;
-                                current->input_mode = I_FILE;
-                                current->input_char = "I_FILE";
-                            }   
+                            current = push(root, tempToke);
+                        }
+                        else
+                        {
+                            current->input_file = tempToke;
+                            current->input_mode = I_FILE;
+                            current->input_char = "I_FILE";
+                        }   
                     }
                     else if(parseState == NEED_OUT_PATH){
                         current->output_file = tempToke;
@@ -238,6 +240,10 @@ int main(int argc, char *argv[])
 
             /*Phase 2~3*/
             current = root;
+            if(current->cmd == NULL)
+            {
+                current = current->next;
+            }
 
             executeCommand(current);    
 
@@ -245,9 +251,9 @@ int main(int argc, char *argv[])
             printf("osh>");
         };
 
-        //free(root);
         current = root;
         freeCommandList(current);
+        free(root);
 
         return 0;
 }
@@ -275,8 +281,6 @@ void freeArgList(struct ArgX* arg)
     }
 }
 
-
-
 /*Phase 2 Methods*/
 void executeCommand(struct CommandX* command)
 {
@@ -286,25 +290,23 @@ void executeCommand(struct CommandX* command)
     struct ArgX *current;
     current = command->arg_list;
    
-    int i = 0;
-    argArray[i] = command->cmd;
+    argArray[0] = command->cmd;
+    int i = 1;
     if (current) 
     { /* Makes sure there is a place to start */  
-       i++;
        while ( current->next != 0 ) 
        {
            if(current->arg != NULL)
            {
-               argArray[i] = current->arg;
+                argArray[i] = current->arg;
+                i++;
            }
            current = current->next;
-           i++;
        }
        argArray[i] = current->arg;
     }
 
     argArray[i+1] = NULL;
-    //End of array creation
 
     int pipefd[2];
     int pid;
@@ -350,8 +352,8 @@ void executeCommand(struct CommandX* command)
        fprintf(stderr, "Fork Failed \n");
        exit(1);
     }
-    else if (pid == 0 )
-    { //Code executed only by child process
+    else if (pid == 0 ) //Code executed only by child process
+    { 
         printf("Child %d Running: %s \n", pid, command->cmd);
         
         if(command->input_mode == I_FILE)
@@ -364,7 +366,6 @@ void executeCommand(struct CommandX* command)
         {
             dup2(command->input_fd, 0);
             close(command->input_fd);
-            //close(pipefd[1]);
         }
 
         if(command->output_mode == O_FILE || command->output_mode == O_APPND)
@@ -396,63 +397,73 @@ void executeCommand(struct CommandX* command)
 
     if(command->next)
     {
-        // if( command->next->next_command_exec_on == JOIN || 
-        //     (status == 0 && command->next->next_command_exec_on == JOIN_SUCCESS) ||
-        //     (status != 0 && command->next->next_command_exec_on ==  JOIN_FAIL))
-        // {
+        if( command->next_command_exec_on == NEXT_ON_ANY || 
+            (status == 0 && command->next_command_exec_on == NEXT_ON_SUCCESS) ||
+            (status != 0 && command->next_command_exec_on ==  NEXT_ON_FAIL))
+        {
             executeCommand(command->next);
-        //}
-
+        }
     }
 }
 /*End Phase 2 Methods*/
 
-int findType(int state, char token[]){
-        char stateString[20];
+int findType(int state, char token[])
+{
+    char stateString[20];
 
-        int type = OTHER_TOKEN;
-        strcpy(stateString, "OTHER_TOKEN");
+    int type = OTHER_TOKEN;
+    strcpy(stateString, "OTHER_TOKEN");
 
-        if(state == NEED_ANY_TOKEN){
+    if(state == NEED_ANY_TOKEN)
+    {
 
-                if(strcmp(token, "&&") == 0){
-                        type = JOIN_SUCCESS;
-                        strcpy(stateString, "JOIN_SUCCESS");
-                }
-                else if(strcmp(token, ";") == 0){
-                        type = JOIN_ANY;
-                        strcpy(stateString, "JOIN_ANY");
-                }
-                else if(strcmp(token, "||") == 0){
-                        type = JOIN_FAIL;
-                        strcpy(stateString, "JOIN_FAIL");
-                }
-                else if(strcmp(token, "<") == 0){
-                        type = IN_REDIRECT;
-                        strcpy(stateString, "IN_REDIRECT");
-                }
-                else if(strcmp(token, ">") == 0){
-                        type = OUT_REDIRECT;
-                        strcpy(stateString, "OUT_REDIRECT");
-                }
-                else if(strcmp(token, ">>") == 0){
-                        type = OUT_APPND;
-                        strcpy(stateString, "OUT_APPND");
-                }
-                else if(strcmp(token, "|") == 0){
-                        type = PIPE;
-                        strcpy(stateString, "PIPE");
-                }
+        if(strcmp(token, "&&") == 0)
+        {
+                type = JOIN_SUCCESS;
+                strcpy(stateString, "JOIN_SUCCESS");
         }
-        
-        if(verbose){
-            printf("Token:->%s<-Type:%s \n", token, stateString);
-        }  
-        return type;
+        else if(strcmp(token, ";") == 0)
+        {
+                type = JOIN_ANY;
+                strcpy(stateString, "JOIN_ANY");
+        }
+        else if(strcmp(token, "||") == 0)
+        {
+                type = JOIN_FAIL;
+                strcpy(stateString, "JOIN_FAIL");
+        }
+        else if(strcmp(token, "<") == 0)
+        {
+                type = IN_REDIRECT;
+                strcpy(stateString, "IN_REDIRECT");
+        }
+        else if(strcmp(token, ">") == 0)
+        {
+                type = OUT_REDIRECT;
+                strcpy(stateString, "OUT_REDIRECT");
+        }
+        else if(strcmp(token, ">>") == 0)
+        {
+                type = OUT_APPND;
+                strcpy(stateString, "OUT_APPND");
+        }
+        else if(strcmp(token, "|") == 0)
+        {
+                type = PIPE;
+                strcpy(stateString, "PIPE");
+        }
+    }
+    
+    if(verbose)
+    {
+        printf("Token:->%s<-Type:%s \n", token, stateString);
+    }  
+    return type;
 }
 
 /*Phase 1 Methods*/
-int findParseState(int previous, int previousType, char token[]){
+int findParseState(int previous, int previousType, char token[])
+{
 
         int parseState;
         char printString[20];
@@ -509,24 +520,27 @@ int findParseState(int previous, int previousType, char token[]){
         return parseState;
 }
 
-int isToken(char token[]){
-        char *tokenList[7] = {">","<",">>","|","&&","||",";"};
+int isToken(char token[])
+{
+    char *tokenList[7] = {">","<",">>","|","&&","||",";"};
 
-        int i;
-        for(i = 0; i<7; i++){
-                int ret = strcmp(token, tokenList[i]);
-                if(ret == 0){
-                        return 1;
-                }
-        }
-        return 0;
+    int i;
+    for(i = 0; i<7; i++){
+            int ret = strcmp(token, tokenList[i]);
+            if(ret == 0){
+                    return 1;
+            }
+    }
+    return 0;
 }
 
-struct CommandX* push(struct CommandX * head, char cmd[]) {
+struct CommandX* push(struct CommandX * head, char cmd[]) 
+{
     struct CommandX * current;
     current = head;
 
-    while (current->next != NULL) {
+    while (current->next != NULL)
+    {
         current = current->next;
     }
 
@@ -538,11 +552,13 @@ struct CommandX* push(struct CommandX * head, char cmd[]) {
     return current->next;
 }
 
-void pushArg(struct ArgX* head, char token[]) {
+void pushArg(struct ArgX* head, char token[]) 
+{
     struct ArgX * current;
     current = head;
 
-    while (current->next != NULL && current->next->arg != NULL) {
+    while (current->next != NULL && current->next->arg != NULL) 
+    {
         current = current->next;
     }
 
