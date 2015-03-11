@@ -1,13 +1,10 @@
 OS Principles: HW 2 README
 By: Shannen Lambdin
 
-I did not encounter any problems while writing this program. Therefore, error catching has been implemented should the user enter an erroneous command, and the program will terminate when the string 'exit' is received as a command. 
-
-Below is a list of problems I ran into while writing this program.
+Below is a list of problems I ran into while writing this program. The program will terminate when the string 'exit' is received as a command. 
 1) Memory leaks
-2) Command validation (phase 1)
-4) Implementing the Next on any, success, failure 
-5) Exiting program when fed 'exit'
+2) Erroneous command checking (phase 1)
+4) Implementing the Next on any, success, failure (phase 3)
 
 Included in my homework submission is a make file that executes the below commands. 
 

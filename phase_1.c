@@ -101,6 +101,8 @@ int isToken(char token[]);
 struct CommandX* push(struct CommandX * head, char cmd[]);
 void pushArg(struct ArgX* head, char token[]);
 void printCommandX(struct CommandX* command);
+void freeCommandList(struct CommandX* command);
+void freeArgList(struct ArgX* arg);
 
 /*Phase 2 Methods*/
 void executeCommand(struct CommandX* command);
@@ -217,7 +219,6 @@ int main(int argc, char *argv[])
                 }                       
             };
 
-
             //Print list of Commands
             current = root;
             if (current) { /* Makes sure there is a place to start */
@@ -244,11 +245,37 @@ int main(int argc, char *argv[])
             printf("osh>");
         };
 
-        free(root);
-        free(current);
+        //free(root);
+        current = root;
+        freeCommandList(current);
 
         return 0;
 }
+
+void freeCommandList(struct CommandX* command)
+{
+   struct CommandX* tmp;
+   while (command != NULL)
+    {
+       tmp = command;
+       freeArgList(command->arg_list);
+       command = command->next;
+       free(tmp);
+    }
+}
+
+void freeArgList(struct ArgX* arg)
+{
+   struct ArgX* tmp;
+   while (arg != NULL)
+    {
+       tmp = arg;
+       arg = arg->next;
+       free(tmp);
+    }
+}
+
+
 
 /*Phase 2 Methods*/
 void executeCommand(struct CommandX* command)
@@ -279,21 +306,18 @@ void executeCommand(struct CommandX* command)
     argArray[i+1] = NULL;
     //End of array creation
 
-    int in;
-    int out; 
-
     int pipefd[2];
     int pid;
 
     if(command->output_mode == O_FILE)
     {
         // replace standard output with output file
-        out = open(command->output_file, O_WRONLY | O_TRUNC | O_CREAT, S_IRUSR | S_IRGRP | S_IWGRP | S_IWUSR);
+        int out = open(command->output_file, O_WRONLY | O_TRUNC | O_CREAT, S_IRUSR | S_IRGRP | S_IWGRP | S_IWUSR);
         command->output_fd = out;
     }
     else if(command->output_mode == O_APPND)
     {
-        out = open(command->output_file, O_WRONLY|O_APPEND);
+        int out = open(command->output_file, O_WRONLY|O_APPEND);
         command->output_fd = out;
     }
     else if(command->output_mode == O_PIPE)
@@ -308,7 +332,7 @@ void executeCommand(struct CommandX* command)
         if(access(command->input_file, F_OK) != -1) 
         {
             // file exists and replace standard input with input file
-            in = open(command->input_file, O_RDONLY);
+            int in = open(command->input_file, O_RDONLY);
             command->input_fd = in;
         } else 
         {
@@ -319,6 +343,7 @@ void executeCommand(struct CommandX* command)
     }
 
     pid = fork();
+    int status; 
     
     if (pid < 0 )
     { 
@@ -339,7 +364,7 @@ void executeCommand(struct CommandX* command)
         {
             dup2(command->input_fd, 0);
             close(command->input_fd);
-            close(pipefd[1]);
+            //close(pipefd[1]);
         }
 
         if(command->output_mode == O_FILE || command->output_mode == O_APPND)
@@ -349,9 +374,8 @@ void executeCommand(struct CommandX* command)
         }
         else if(command->output_mode == O_PIPE)
         {
-            dup2(pipefd[0], 0);
-            close(pipefd[0]);
-            close(pipefd[1]);
+            dup2(command->output_fd, 1);
+            close(command->output_fd);
         }
 
         //execute command
@@ -366,14 +390,19 @@ void executeCommand(struct CommandX* command)
         {
             close(pipefd[1]);
         }
-        int status;  
         wait(&status); 
         printf("Parent picked up child %d, status = %d \n", pid, status);
     }
 
     if(command->next)
     {
-        executeCommand(command->next);
+        // if( command->next->next_command_exec_on == JOIN || 
+        //     (status == 0 && command->next->next_command_exec_on == JOIN_SUCCESS) ||
+        //     (status != 0 && command->next->next_command_exec_on ==  JOIN_FAIL))
+        // {
+            executeCommand(command->next);
+        //}
+
     }
 }
 /*End Phase 2 Methods*/
